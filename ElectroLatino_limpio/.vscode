@@ -1,0 +1,16 @@
+{
+    "[html]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "liveServer.settings.donotShowInfoMsg": true,
+    "editor.formatOnSave": true,
+    "chat.viewSessions.orientation": "stacked",
+    "workbench.colorTheme": "Monokai Dimmed",
+    "git.ignoreMissingGitWarning": true,
+    "maven.view": "flat",
+    "emmet.includeLanguages": {
+        "php": "html"
+    },
+    "emmet.triggerExpansionOnTab": true,
+    "emmet.showExpandedAbbreviation": "always"
+}
