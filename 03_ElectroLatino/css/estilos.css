@@ -1,0 +1,275 @@
+:root {
+    font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+    color: #172536;
+    background: #f5f7fb;
+    line-height: 1.5
+}
+
+html[data-tema="oscuro"] {
+    color-scheme: dark;
+    background: #131b28;
+    color: #e8eef8
+}
+
+* {
+    box-sizing: border-box
+}
+
+body {
+    margin: 0
+}
+
+a {
+    color: inherit
+}
+
+.contenedor {
+    max-width: 1080px;
+    margin: auto;
+    padding: 0 20px
+}
+
+.cabecera {
+    background: #122b47;
+    color: white
+}
+
+.barra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding-top: 18px;
+    padding-bottom: 18px
+}
+
+.marca {
+    font-size: 1.35rem;
+    font-weight: 800;
+    text-decoration: none
+}
+
+.barra nav {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap
+}
+
+.barra nav a {
+    text-decoration: none;
+    font-size: .92rem
+}
+
+.intro {
+    padding: 32px 0 20px
+}
+
+.intro h1 {
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    margin: 6px 0
+}
+
+.intro p {
+    max-width: 750px
+}
+
+.etiqueta {
+    color: #e27c30;
+    font-weight: 800;
+    letter-spacing: .15em;
+    font-size: .76rem
+}
+
+.productos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 18px;
+    padding: 12px 0 48px
+}
+
+.tarjeta,
+.panel {
+    background: white;
+    color: #172536;
+    border: 1px solid #dce3ec;
+    border-radius: 15px;
+    box-shadow: 0 5px 22px #142b4710
+}
+
+.tarjeta {
+    padding: 22px
+}
+
+.tarjeta h2 {
+    font-size: 1.15rem
+}
+
+.ilustracion {
+    display: grid;
+    place-items: center;
+    font-size: 3.4rem;
+    height: 110px;
+    background: #eff5fa;
+    border-radius: 12px
+}
+
+.precio {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #17638d
+}
+
+button,
+.boton {
+    display: inline-block;
+    background: #1670a0;
+    color: white;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: .95rem
+}
+
+button:hover,
+.boton:hover {
+    filter: brightness(.92)
+}
+
+.peligro {
+    background: #a83c42
+}
+
+.secundario {
+    background: #526579
+}
+
+.panel {
+    padding: 22px;
+    margin-bottom: 42px;
+    overflow-x: auto
+}
+
+.estrecho {
+    max-width: 640px
+}
+
+.total {
+    text-align: right;
+    font-size: 1.4rem;
+    font-weight: 800
+}
+
+input,
+select {
+    font: inherit;
+    border: 1px solid #aab8c9;
+    border-radius: 7px;
+    padding: 8px;
+    max-width: 100%
+}
+
+label {
+    display: block;
+    font-weight: 650;
+    margin: 14px 0 6px
+}
+
+.estrecho input,
+.estrecho select {
+    display: block;
+    width: 100%;
+    margin-bottom: 16px
+}
+
+.en-linea {
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
+.en-linea input {
+    width: 68px
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 670px
+}
+
+th,
+td {
+    text-align: left;
+    padding: 12px 8px;
+    border-bottom: 1px solid #e1e7ee
+}
+
+th {
+    background: #f0f4f8
+}
+
+.nota {
+    color: #526579;
+    font-size: .93rem
+}
+
+.separado {
+    margin-top: 20px
+}
+
+.bienvenida {
+    margin-top: 22px;
+    font-weight: 700
+}
+
+.romper {
+    overflow-wrap: anywhere
+}
+
+pre {
+    padding: 15px;
+    background: #eef2f7;
+    overflow: auto;
+    border-radius: 8px
+}
+
+.pie {
+    padding: 25px;
+    text-align: center;
+    background: #122b47;
+    color: #d9e7f3;
+    font-size: .85rem
+}
+
+html[data-tema="oscuro"] .tarjeta,
+html[data-tema="oscuro"] .panel {
+    background: #243245;
+    color: #e8eef8;
+    border-color: #3a4d63
+}
+
+html[data-tema="oscuro"] .ilustracion,
+html[data-tema="oscuro"] pre {
+    background: #34455a
+}
+
+html[data-tema="oscuro"] .precio {
+    color: #8cd1fa
+}
+
+html[data-tema="oscuro"] .nota {
+    color: #bdcddd
+}
+
+html[data-tema="oscuro"] th {
+    background: #34455a
+}
+
+html[data-tema="oscuro"] td,
+html[data-tema="oscuro"] th {
+    border-color: #45566b
+}

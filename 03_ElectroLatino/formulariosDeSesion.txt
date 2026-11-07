@@ -1,0 +1,214 @@
+================================================================================
+DOCUMENTACIÓN TÉCNICA: FLUJO DE FORMULARIOS, SESIONES Y PROTECCIÓN CSRF
+PROYECTO: MiniTienda PHP / ElectroLatino
+================================================================================
+
+Este documento explica detalladamente cómo interactúan los distintos archivos y 
+métodos del proyecto desde que se configura la sesión, pasando por la creación 
+de los formularios HTML con el método campoCsrf(), hasta la recepción y 
+procesamiento de las peticiones en sesion.php y cerrar.php.
+
+
+
+--------------------------------------------------------------------------------
+1. INICIALIZACIÓN Y CONFIGURACIÓN: includes/config.php
+--------------------------------------------------------------------------------
+
+Este archivo es el pilar de seguridad y estado de la aplicación. Se carga al 
+principio de cada página (antes de emitir cualquier etiqueta HTML) para 
+preparar el entorno:
+
+
+A) Comprobación estricta de tipos:
+   - `declare(strict_types=1);`
+   - Obliga a PHP a respetar estrictamente los tipos de datos en los parámetros 
+     y valores de retorno de las funciones (por ejemplo, que `campoCsrf(): string` 
+     devuelva obligatoriamente una cadena de texto), evitando conversiones 
+     automáticas imprevistas.
+
+
+B) Directivas de seguridad para el ID de sesión (`ini_set`):
+   - `ini_set('session.use_strict_mode', '1');`
+     Previene ataques de fijación de sesión (Session Fixation). El servidor 
+     rechaza cualquier identificador de sesión (PHPSESSID) que no haya sido 
+     generado previamente por el propio servidor.
+   - `ini_set('session.use_only_cookies', '1');`
+     Obliga a que el ID de sesión viaje únicamente dentro de las cookies HTTP, 
+     prohibiendo que se pase a través de parámetros en la URL (ej. ?PHPSESSID=...).
+
+
+C) Detección de protocolo seguro (`$https`):
+   - `$https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';`
+   - Evalúa mediante cortocircuito lógico si el servidor está operando bajo una 
+     conexión cifrada TLS/HTTPS, guardando `true` o `false`.
+
+
+D) Configuración de parámetros de la cookie (`session_set_cookie_params`):
+   Se configura antes de iniciar la sesión para blindar la cookie `PHPSESSID`:
+   - `'lifetime' => 0`: La cookie expira cuando se cierra el navegador.
+   - `'path' => '/'`: Disponible en todas las rutas y carpetas del proyecto.
+   - `'secure' => $https`: Si hay HTTPS, la cookie solo viajará por canales cifrados.
+   - `'httponly' => true`: Impide que scripts de JavaScript (`document.cookie`) 
+     puedan leer la cookie, mitigando el robo de sesión mediante ataques XSS.
+   - `'samesite' => 'Lax'`: Restringe el envío de la cookie desde sitios web 
+     externos, ofreciendo una primera barrera contra ataques CSRF sin romper la 
+     navegación normal.
+
+
+E) Arranque de sesión e inicialización de estructuras (`session_start`):
+   - `session_start();`
+     Crea una nueva sesión o recupera la existente leyendo la cookie `PHPSESSID` 
+     enviada por el cliente, habilitando el array superglobal `$_SESSION`.
+   - Inicialización del carrito:
+     `if (!isset($_SESSION['carrito']) || !is_array($_SESSION['carrito']))`
+     Garantiza que `$_SESSION['carrito']` sea siempre un array válido sin 
+     sobrescribir ni borrar los productos que ya estuvieran guardados.
+
+
+F) Generación del Token CSRF en el servidor:
+   - `if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }`
+   - Si la sesión aún no tiene un token CSRF, genera 32 bytes aleatorios 
+     criptográficamente seguros (`random_bytes(32)`) y los convierte a una 
+     cadena hexadecimal de 64 caracteres (`bin2hex`).
+   - Se guarda en `$_SESSION['csrf_token']` (en el lado del servidor) para 
+     poder compararlo más adelante cuando el usuario envíe algún formulario.
+
+
+G) Carga de herramientas (`require_once`):
+   - `require_once __DIR__ . '/funciones.php';`
+   - Incorpora el archivo de funciones auxiliares usando la ruta absoluta del 
+     directorio actual (`__DIR__`), haciendo que métodos como `campoCsrf()`, 
+     `exigirPostValido()` y `volver()` estén disponibles en cualquier página 
+     que incluya `config.php`.
+
+
+
+--------------------------------------------------------------------------------
+2. GENERACIÓN DEL CAMPO OCULTO: campoCsrf() en includes/funciones.php
+--------------------------------------------------------------------------------
+
+Esta función actúa como puente entre el token almacenado en el servidor y el 
+código HTML del formulario que ve el navegador del cliente:
+
+    function campoCsrf(): string {
+        $token = htmlspecialchars("prueba", ENT_QUOTES, "UTF-8");
+        return '<input type="hidden" name="csrf_token" value="' . $token . '">';
+    }
+
+Desglose de sus partes:
+
+
+A) Firma de la función (`function campoCsrf(): string`):
+   - No requiere parámetros de entrada y declara que devolverá siempre un `string`.
+
+
+B) Saneamiento del valor (`htmlspecialchars`):
+   - Convierte caracteres especiales en entidades HTML seguras.
+   - El flag `ENT_QUOTES` asegura que tanto las comillas simples (`'`) como las 
+     dobles (`"`) sean escapadas, evitando que se rompa el atributo `value=""` 
+     del HTML o se inyecte código malicioso (XSS).
+   - Nota sobre el entorno de pruebas: En la fase de laboratorio se utiliza el 
+     string fijo `"prueba"` para verificar el flujo; en su versión final enlazada 
+     con `config.php`, toma el valor dinámico de `$_SESSION['csrf_token']`.
+
+
+C) Retorno del elemento HTML (`return '<input ...>'`):
+   - `type="hidden"`: Hace que el campo sea invisible para el usuario en la 
+     interfaz gráfica de la página, pero permite que el navegador lo incluya en 
+     los datos enviados al pulsar el botón de envío.
+   - `name="csrf_token"`: Define la clave con la que llegará el dato al servidor 
+     dentro del array `$_POST['csrf_token']`.
+   - `value="' . $token . '"`: Inserta el token dentro del atributo value.
+
+
+
+--------------------------------------------------------------------------------
+3. IMPLEMENTACIÓN EN LOS FORMULARIOS: sesion.php
+--------------------------------------------------------------------------------
+
+En `sesion.php` encontramos la interfaz donde el usuario interactúa con dos 
+formularios distintos y el bloque superior PHP que procesa la regeneración.
+
+
+A) Inserción en el HTML mediante la etiqueta corta de impresión `<?= ... ?>`:
+   Dentro de cada etiqueta `<form>`, se incluye la llamada:
+   `<?= campoCsrf() ?>`
+   Esto equivale a hacer `<?php echo campoCsrf(); ?>`. PHP ejecuta la función 
+   e imprime directamente el `<input type="hidden" ...>` dentro del formulario.
+
+
+B) Primer Formulario: Regenerar identificador de sesión
+
+        <form method="post">
+            <?= campoCsrf() ?>
+            <button type="submit">Regenerar identificador de sesión</button>
+        </form>
+
+   - `method="post"`: Indica que los datos viajarán en el cuerpo de la petición 
+     HTTP POST (nunca en la URL).
+   - Sin atributo `action`: Al omitir `action`, el formulario se envía a la 
+     misma página actual (`sesion.php`).
+   - Procesamiento al enviarse (parte superior de `sesion.php`):
+     1. `if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')`: Detecta que se ha 
+        pulsado el botón y se ha recibido una petición POST.
+     2. `exigirPostValido();`: Verifica que el método sea POST y comprueba que 
+        el `$_POST['csrf_token']` enviado por el input oculto coincida con el 
+        token esperado por el servidor.
+     3. `session_regenerate_id(true);`: Cambia el identificador de la cookie de 
+        sesión (`PHPSESSID`) por uno nuevo manteniendo los datos del carrito, y 
+        borra el archivo de sesión antiguo en el servidor (`true`).
+     4. `volver('sesion.php');`: Redirige de vuelta a la misma página mediante 
+        GET (Patrón Post/Redirect/Get) para evitar reenvíos de formulario al 
+        recargar el navegador.
+
+
+C) Segundo Formulario: Cerrar sesión y borrar carrito
+
+        <form action="cerrar.php" method="post" class="separado">
+            <?= campoCsrf() ?>
+            <button type="submit">Cerrar sesión y borrar carrito</button>
+        </form>
+
+   - `action="cerrar.php"`: A diferencia del anterior, este formulario empaqueta 
+     el input oculto `csrf_token` y lo envía mediante `POST` hacia un archivo 
+     externo específico: `cerrar.php`.
+
+
+
+--------------------------------------------------------------------------------
+4. RECEPCIÓN Y DESTRUCCIÓN DE LA SESIÓN: cerrar.php
+--------------------------------------------------------------------------------
+
+Cuando el usuario pulsa el botón "Cerrar sesión y borrar carrito", el navegador 
+realiza una petición POST hacia `cerrar.php`, donde se ejecutan los siguientes 
+pasos en orden secuencial:
+
+
+A) `require_once __DIR__ . '/includes/config.php';`
+   - Carga la configuración general, recupera la sesión activa mediante 
+     `session_start()` (necesario para saber qué sesión se va a validar y 
+     destruir) e importa las funciones de `funciones.php`.
+
+
+B) `exigirPostValido();`
+   - Es el filtro de seguridad crítico antes de ejecutar la acción destructiva.
+   - Comprueba dos cosas:
+     1. Que la petición haya llegado por el método `POST` (impidiendo que 
+        alguien cierre la sesión simplemente escribiendo `cerrar.php` en la barra 
+        de direcciones del navegador o mediante un enlace `<a>` malicioso).
+     2. Que el valor del campo oculto `$_POST['csrf_token']` generado por 
+        `campoCsrf()` sea válido. Si no coincide o falta, detiene la ejecución, 
+        protegiendo al usuario frente a ataques CSRF.
+
+
+C) Lógica de borrado de datos, caducidad de cookie y destrucción de sesión:
+   - Una vez superado `exigirPostValido()`, este script se encarga de vaciar 
+     el array `$_SESSION`, invalidar la cookie en el navegador y destruir los 
+     datos asociados en el servidor (`session_destroy()`).
+
+
+D) `volver('index.php');`
+   - Invoca la función definida en `funciones.php` que envía la cabecera HTTP 
+     `header("Location: index.php", true, 303);` y ejecuta `exit;`.
+   - Deja al usuario en la página principal de la tienda con la sesión limpia y 
+     finaliza inmediatamente la ejecución del script.
